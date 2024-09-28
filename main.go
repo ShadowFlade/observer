@@ -37,15 +37,11 @@ func main() {
 
 		user, mem, prog := splitStr[0], splitStr[1], splitStr[2]
 
-		if err != nil {
-			fmt.Println("Cannot convert memory usage to int")
-		}
-
 		memInt, err := strconv.Atoi(mem)
 		if userStat, ok := userStats[user]; ok {
 
 			if err != nil {
-				fmt.Println("Can't convert user memory usage into int")
+				fmt.Println("Can't convert user memory usage into int", " ", mem)
 			}
 
 			userStat.TotalMemUsage += float32(memInt)
