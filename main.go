@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	myCmd "github.com/ShadowFlade/observer/cmd"
 )
 
 func main() {
@@ -64,4 +66,5 @@ func main() {
 		}
 	}
 	fmt.Println(userStats, " user stats")
+	myCmd.Execute()
 }
