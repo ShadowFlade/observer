@@ -34,7 +34,10 @@ type UserStat struct {
 	Name          string
 }
 
-func (a *App) Main(onlyUser string) ([]string, UserStat) {
+type UserStats map[string]UserStat
+
+func (a *App) Main(onlyUser string) ([]string, UserStats) {
+	onlyUser = a.formatUsernameTop(onlyUser)
 	topColumns := TopColumns{PID: 1, User: 2, PR: 3, NI: 4, Virt: 5, Res: 6, SHR: 7, S: 8, CPU: 9, Mem: 10, Time: 11, Prog: 12}
 	isSkipHeader := true
 	var header string
@@ -44,12 +47,14 @@ func (a *App) Main(onlyUser string) ([]string, UserStat) {
 	} else {
 		header = ""
 	}
+
 	topStatsCommand := fmt.Sprintf("top -b -n 1 | awk '%s {print $%d, $%d, $%d}'", header, topColumns.User, topColumns.Res, topColumns.Prog)
 
 	fmt.Println(topStatsCommand, " top stats command")
 
 	cmd := exec.Command("bash", "-c", topStatsCommand)
 	topStats, err := cmd.Output()
+	fmt.Println(topStats, onlyUser, " top stats")
 
 	userStats := make(map[string]UserStat)
 
@@ -57,20 +62,26 @@ func (a *App) Main(onlyUser string) ([]string, UserStat) {
 		fmt.Println("Error outputting 'top'")
 	}
 
+	users := []string{}
+
 	for _, val := range strings.Split(string(topStats), "\n") {
 		splitStr := strings.Split(val, " ")
 
+		if len(splitStr) < 3 {
+			continue
+		}
 		user, mem, prog := splitStr[0], splitStr[1], splitStr[2]
 
 		//later can refocator that if we pass onluUser we can sort columhns beforehande - so before topStatsCommand so we get only one user - we sort on user, and after stopped getting these users commands we stop parsing
 
-		if len(splitStr) < 3 || (onlyUser != "" && user != onlyUser) {
+		if onlyUser != "" && user != onlyUser {
 			continue
 		}
 
 		memInt, err := strconv.Atoi(mem)
 
 		if userStat, ok := userStats[user]; ok {
+			users = append(users, user)
 
 			if err != nil {
 				fmt.Println("Can't convert user memory usage into int", " ", mem)
@@ -96,4 +107,14 @@ func (a *App) Main(onlyUser string) ([]string, UserStat) {
 		}
 	}
 	fmt.Println(userStats, " user stats")
+	return users, userStats
+}
+
+func (a *App) formatUsernameTop(username string) string {
+	fmt.Println(username, " username")
+	return username[:7] + "+"
+}
+
+func (a *App) Init () {
+
 }

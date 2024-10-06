@@ -12,7 +12,7 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand()
+	rootCmd.AddCommand(createCmd)
 }
 
 type listOptions struct {
@@ -24,11 +24,10 @@ type Options struct {
 	ProjectType string
 }
 
-// var createCmd = &cobra.Command{
-// 	Use:   "",
-// 	Short: "short description",
-// 	Long:  ".",
-// 	Run: func(cmd *cobra.Command, args []string) {
-//
-// 	}
-// }
+var createCmd = &cobra.Command{
+	Use:   "user",
+	Short: "Get info about specific user",
+	Long:  ".",
+	Run: func(cmd *cobra.Command, args []string) {
+
+	}}

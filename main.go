@@ -7,6 +7,6 @@ import (
 
 func main() {
 	app := logic.App{DebugState: logic.DEBUG_DEBUG}
-	users, userStats := app.Main("shadowflade")
+	app.Main("shadowflade")
 	myCmd.Execute()
 }
