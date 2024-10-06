@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 type DEBUG_STATE int64
@@ -50,11 +51,8 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 
 	topStatsCommand := fmt.Sprintf("top -b -n 1 | awk '%s {print $%d, $%d, $%d}'", header, topColumns.User, topColumns.Res, topColumns.Prog)
 
-	fmt.Println(topStatsCommand, " top stats command")
-
 	cmd := exec.Command("bash", "-c", topStatsCommand)
 	topStats, err := cmd.Output()
-	fmt.Println(topStats, onlyUser, " top stats")
 
 	userStats := make(map[string]UserStat)
 
@@ -106,15 +104,14 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 			}
 		}
 	}
-	fmt.Println(userStats, " user stats")
 	return users, userStats
 }
 
 func (a *App) formatUsernameTop(username string) string {
-	fmt.Println(username, " username")
-	return username[:7] + "+"
-}
-
-func (a *App) Init () {
-
+	fmt.Println(username, " user name")
+	if utf8.RuneCountInString(username) > 7 {
+		return username[:7] + "+"
+	} else {
+		return username
+	}
 }

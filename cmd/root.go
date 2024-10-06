@@ -4,10 +4,29 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ShadowFlade/observer/pkg/logic"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+)
+
+const logo = `
+$$$$$$\  $$$$$$$\   $$$$$$\  $$$$$$$$\ $$$$$$$\  $$\    $$\ $$$$$$$$\ $$$$$$$\
+$$  __$$\ $$  __$$\ $$  __$$\ $$  _____|$$  __$$\ $$ |   $$ |$$  _____|$$  __$$\
+$$ /  $$ |$$ |  $$ |$$ /  \__|$$ |      $$ |  $$ |$$ |   $$ |$$ |      $$ |  $$ |
+$$ |  $$ |$$$$$$$\ |\$$$$$$\  $$$$$\    $$$$$$$  |\$$\  $$  |$$$$$\    $$$$$$$  |
+$$ |  $$ |$$  __$$\  \____$$\ $$  __|   $$  __$$<  \$$\$$  / $$  __|   $$  __$$<
+$$ |  $$ |$$ |  $$ |$$\   $$ |$$ |      $$ |  $$ |  \$$$  /  $$ |      $$ |  $$ |
+ $$$$$$  |$$$$$$$  |\$$$$$$  |$$$$$$$$\ $$ |  $$ |   \$  /   $$$$$$$$\ $$ |  $$ |
+ \______/ \_______/  \______/ \________|\__|  \__|    \_/    \________|\__|  \__|
+`
+
+var (
+	logoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#01FAC6")).Bold(true)
+	usersStyle = lipgloss.NewStyle().PaddingLeft(10).Foreground(lipgloss.Color("190")).Italic(true)
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -16,7 +35,9 @@ var rootCmd = &cobra.Command{
 	Short: "controll your users and observer their RAM usage",
 	Run: func(cmd *cobra.Command, args []string) {
 		app := logic.App{DebugState: logic.DEBUG_DEBUG}
-		app.Main("")
+		users, _ := app.Main("")
+		fmt.Printf("%s\n", logoStyle.Render(logo))
+		fmt.Printf("%s\n", usersStyle.Render(strings.Join(users, "\n")))
 	},
 }
 
