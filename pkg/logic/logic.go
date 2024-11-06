@@ -3,10 +3,13 @@ package logic
 import (
 	"fmt"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/ShadowFlade/observer/pkg/db"
 )
 
 type DEBUG_STATE int64
@@ -69,7 +72,7 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 		if len(splitStr) < 3 {
 			continue
 		}
-		user, mem, prog := strings.Trim(splitStr[0]," "), splitStr[1], splitStr[2]
+		user, mem, prog := strings.Trim(splitStr[0], " "), splitStr[1], splitStr[2]
 
 		//later can refocator that if we pass onluUser we can sort columhns beforehande - so before topStatsCommand so we get only one user - we sort on user, and after stopped getting these users commands we stop parsing
 
@@ -79,7 +82,7 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 
 		memInt, err := strconv.Atoi(mem)
 
-		if userStat, ok := userStats[user]; ok && !slices.Contains(users,user) {
+		if userStat, ok := userStats[user]; ok && !slices.Contains(users, user) {
 			users = append(users, user)
 
 			if err != nil {
@@ -105,15 +108,36 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 			}
 		}
 	}
-	fmt.Println(len(users)," length of users")
+	fmt.Println(len(users), " length of users")
 	return users, userStats
 }
 
 func (a *App) formatUsernameTop(username string) string {
 	count := utf8.RuneCountInString(username)
-	if  count > 7 {
+	if count > 7 {
 		return username[:7] + "+"
 	} else {
 		return username
 	}
+}
+
+func (a *App) writeRegularUsers() {
+	db := db.Db{}
+	db.Connect()
+	command := "less /etc/passwd"
+	cmd := exec.Command("bash", "-c", command)
+
+	users, err := cmd.Output()
+	if err != nil {
+		panic("Cannot write regular users")
+	}
+
+	r, _ := regexp.Compile(`(.+)\:x\:(\d+).*`)
+	res := r.FindAll(users, -1) //we dont count users with groupid less than 1000 bc its system users
+	for _, userGroup := range res {
+		if int(userGroup[2]) > 1000 {
+			db.WriteRegularUser(userGroup[1])
+		}
+	}
+
 }

@@ -6,10 +6,14 @@ require (
 	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/bubbletea v1.1.1
 	github.com/charmbracelet/lipgloss v0.13.0
+	github.com/go-sql-driver/mysql v1.8.1
+	github.com/gofor-little/env v1.0.18
+	github.com/jmoiron/sqlx v1.4.0
 	github.com/spf13/cobra v1.8.1
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/x/ansi v0.2.3 // indirect
