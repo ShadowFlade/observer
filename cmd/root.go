@@ -6,7 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
+	"strconv"
 
 	"github.com/ShadowFlade/observer/pkg/logic"
 	"github.com/charmbracelet/lipgloss"
@@ -26,7 +26,8 @@ $$ |  $$ |$$ |  $$ |$$\   $$ |$$ |      $$ |  $$ |  \$$$  /  $$ |      $$ |  $$ 
 
 var (
 	logoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#01FAC6")).Bold(true)
-	usersStyle = lipgloss.NewStyle().PaddingLeft(10).Foreground(lipgloss.Color("190")).Italic(true)
+	usersStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("190")).Italic(true).Width(8)
+	memStyle   = lipgloss.NewStyle().PaddingLeft(1).Bold(true).Align(lipgloss.Right)
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -35,9 +36,17 @@ var rootCmd = &cobra.Command{
 	Short: "controll your users and observer their RAM usage",
 	Run: func(cmd *cobra.Command, args []string) {
 		app := logic.App{DebugState: logic.DEBUG_DEBUG}
-		users, _ := app.Main("")
-		fmt.Printf("%s\n", logoStyle.Render(logo))
-		fmt.Printf("%s\n", usersStyle.Render(strings.Join(users, "\n")))
+		users, userStats := app.Main("")
+		// fmt.Printf("%s\n", logoStyle.Render(logo))
+
+		for _, user := range users {
+			fmt.Printf(
+				"%s %s\n",
+				usersStyle.Render(user),
+				memStyle.Render(
+					strconv.FormatFloat(float64(userStats[user].TotalMemUsage), 'f', 2, 32)),
+			)
+		}
 	},
 }
 
