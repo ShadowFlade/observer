@@ -3,6 +3,7 @@ package logic
 import (
 	"fmt"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -68,7 +69,7 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 		if len(splitStr) < 3 {
 			continue
 		}
-		user, mem, prog := splitStr[0], splitStr[1], splitStr[2]
+		user, mem, prog := strings.Trim(splitStr[0]," "), splitStr[1], splitStr[2]
 
 		//later can refocator that if we pass onluUser we can sort columhns beforehande - so before topStatsCommand so we get only one user - we sort on user, and after stopped getting these users commands we stop parsing
 
@@ -78,7 +79,7 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 
 		memInt, err := strconv.Atoi(mem)
 
-		if userStat, ok := userStats[user]; ok {
+		if userStat, ok := userStats[user]; ok && !slices.Contains(users,user) {
 			users = append(users, user)
 
 			if err != nil {
@@ -104,12 +105,13 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 			}
 		}
 	}
+	fmt.Println(len(users)," length of users")
 	return users, userStats
 }
 
 func (a *App) formatUsernameTop(username string) string {
-	fmt.Println(username, " user name")
-	if utf8.RuneCountInString(username) > 7 {
+	count := utf8.RuneCountInString(username)
+	if  count > 7 {
 		return username[:7] + "+"
 	} else {
 		return username
