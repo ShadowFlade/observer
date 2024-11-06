@@ -121,23 +121,24 @@ func (a *App) formatUsernameTop(username string) string {
 	}
 }
 
-func (a *App) writeRegularUsers() {
+func (a *App) checkWriteRegularUsers() {
 	db := db.Db{}
 	db.Connect()
 	command := "less /etc/passwd"
 	cmd := exec.Command("bash", "-c", command)
 
 	users, err := cmd.Output()
+
 	if err != nil {
 		panic("Cannot write regular users")
 	}
 
 	r, _ := regexp.Compile(`(.+)\:x\:(\d+).*`)
 	res := r.FindAll(users, -1) //we dont count users with groupid less than 1000 bc its system users
+	existingUsers := db.GetRegularUsers()
 	for _, userGroup := range res {
-		if int(userGroup[2]) > 1000 {
-			db.WriteRegularUser(userGroup[1])
+		if int(userGroup[2]) > 1000 && !slices.Contains(existingUsers, string(userGroup[1])) {
+			db.WriteRegularUser(string(userGroup[1]))
 		}
 	}
-
 }

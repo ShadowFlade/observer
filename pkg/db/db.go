@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -9,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type IUsers struct {
+type IUser struct {
 	ID   int    `db:"id"`
 	USER string `db:"user"`
 	TYPE string `db:"type"`
@@ -48,7 +49,7 @@ func (d *Db) Connect() *sqlx.DB {
 
 }
 
-func (d *Db) WriteRegularUser(user interface{}) (int64, error) {
+func (d *Db) WriteRegularUser(user string) (int64, error) {
 	tx := d.db.MustBegin()
 
 	res, err := tx.NamedExec(`INSERT INTO users (user, type) VALUES (:user, regular)`, user)
@@ -70,4 +71,25 @@ func (d *Db) WriteRegularUser(user interface{}) (int64, error) {
 	}
 
 	return id, nil
+}
+
+func (d *Db) GetRegularUsers() []string {
+	usersRes, err := d.tx.Queryx("select user from users")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer usersRes.Close()
+
+	var users []string
+	for usersRes.Next() {
+		var user string
+		err := usersRes.Scan(&user)
+		if err != nil {
+			log.Fatal(err)
+		}
+		users = append(users, user)
+	}
+
+	return users
+
 }
