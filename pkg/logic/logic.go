@@ -7,9 +7,11 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/ShadowFlade/observer/pkg/db"
+	"github.com/jmoiron/sqlx"
 )
 
 type DEBUG_STATE int64
@@ -23,6 +25,7 @@ const (
 
 type App struct {
 	DebugState DEBUG_STATE
+	DB         sqlx.DB
 }
 type TopColumns struct {
 	PID, User, PR, NI, Virt, Res, SHR, S, CPU, Mem, Time, Prog int
@@ -34,15 +37,46 @@ type ProgStat struct {
 }
 
 type UserStat struct {
-	Prog          []ProgStat
-	TotalMemUsage float32
-	Name          string
+	Prog                 []ProgStat
+	TotalMemUsage        float32
+	TotalMemUsagePercent float32
+	Name                 userName
 }
 
-type UserStats map[string]UserStat
+type userName string
+type UserStats map[userName]UserStat
 
-func (a *App) Main(onlyUser string) ([]string, UserStats) {
+func (a *App) Main(onlyUser userName, intervalSeconds int, db db.Db) {
+	regularUsers, ids := db.GetRegularUsers()
 	onlyUser = a.formatUsernameTop(onlyUser)
+	interval := intervalSeconds * int(time.Second)
+	ticker := time.NewTicker(time.Duration(interval))
+	defer ticker.Stop()
+	done := make(chan bool)
+	go func() {
+		users, userStats, _ := a.parseTopAndGetUserResults(onlyUser)
+
+		for i, user := range users {
+			if !slices.Contains(users, user) {
+				isOk := a.checkWriteRegularUser(user)
+				if isOk {
+					regularUsers = append(regularUsers, string(user))
+					db.WriteStats(userStats[user].TotalMemUsage, userStats[user].TotalMemUsagePercent, ids[i], len(users))
+				}
+
+			} else {
+				db.WriteStats(userStats[user].TotalMemUsage, userStats[user].TotalMemUsagePercent, ids[i], len(users))
+			}
+		}
+	}()
+
+	done <- true
+	fmt.Println("Ticker done")
+
+}
+
+func (a *App) parseTopAndGetUserResults(onlyUser userName) ([]userName, UserStats, float32) {
+
 	topColumns := TopColumns{PID: 1, User: 2, PR: 3, NI: 4, Virt: 5, Res: 6, SHR: 7, S: 8, CPU: 9, Mem: 10, Time: 11, Prog: 12}
 	isSkipHeader := true
 	var header string
@@ -58,13 +92,14 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 	cmd := exec.Command("bash", "-c", topStatsCommand)
 	topStats, err := cmd.Output()
 
-	userStats := make(map[string]UserStat)
+	userStats := make(map[userName]UserStat)
+	var totalEmployeesMemoryUsage float32
 
 	if err != nil {
 		fmt.Println("Error outputting 'top'")
 	}
 
-	users := []string{}
+	users := []userName{}
 
 	for _, val := range strings.Split(string(topStats), "\n") {
 		splitStr := strings.Split(val, " ")
@@ -72,7 +107,8 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 		if len(splitStr) < 3 {
 			continue
 		}
-		user, mem, prog := strings.Trim(splitStr[0], " "), splitStr[1], splitStr[2]
+
+		user, mem, prog := userName(strings.Trim(splitStr[0], " ")), splitStr[1], splitStr[2]
 
 		//later can refocator that if we pass onluUser we can sort columhns beforehande - so before topStatsCommand so we get only one user - we sort on user, and after stopped getting these users commands we stop parsing
 
@@ -81,6 +117,7 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 		}
 
 		memInt, err := strconv.Atoi(mem)
+		totalEmployeesMemoryUsage += float32(memInt)
 
 		if userStat, ok := userStats[user]; ok && !slices.Contains(users, user) {
 			users = append(users, user)
@@ -108,12 +145,15 @@ func (a *App) Main(onlyUser string) ([]string, UserStats) {
 			}
 		}
 	}
+	for _, userStat := range userStats {
+		userStat.TotalMemUsagePercent = userStat.TotalMemUsage / totalEmployeesMemoryUsage
+	}
 	fmt.Println(len(users), " length of users")
-	return users, userStats
+	return users, userStats, totalEmployeesMemoryUsage
 }
 
-func (a *App) formatUsernameTop(username string) string {
-	count := utf8.RuneCountInString(username)
+func (a *App) formatUsernameTop(username userName) userName {
+	count := utf8.RuneCountInString(string(username))
 	if count > 7 {
 		return username[:7] + "+"
 	} else {
@@ -121,7 +161,7 @@ func (a *App) formatUsernameTop(username string) string {
 	}
 }
 
-func (a *App) checkWriteRegularUsers() {
+func (a *App) checkWriteRegularUser(user userName) bool {
 	db := db.Db{}
 	db.Connect()
 	command := "less /etc/passwd"
@@ -133,12 +173,11 @@ func (a *App) checkWriteRegularUsers() {
 		panic("Cannot write regular users")
 	}
 
-	r, _ := regexp.Compile(`(.+)\:x\:(\d+).*`)
-	res := r.FindAll(users, -1) //we dont count users with groupid less than 1000 bc its system users
-	existingUsers := db.GetRegularUsers()
-	for _, userGroup := range res {
-		if int(userGroup[2]) > 1000 && !slices.Contains(existingUsers, string(userGroup[1])) {
-			db.WriteRegularUser(string(userGroup[1]))
-		}
+	r, _ := regexp.Compile(fmt.Sprintf(`%s\:x\:(\d+).*`, user))
+	res := r.Find(users) //we dont count users with groupid less than 1000 bc its system users
+	if int(res[2]) > 1000 {
+		db.WriteRegularUser(string(res[1]))
+		return true
 	}
+	return false
 }
