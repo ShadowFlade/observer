@@ -6,8 +6,6 @@ package cmd
 import (
 	"os"
 
-	"github.com/ShadowFlade/observer/pkg/db"
-	"github.com/ShadowFlade/observer/pkg/logic"
 	"github.com/spf13/cobra"
 )
 
@@ -27,16 +25,8 @@ var rootCmd = &cobra.Command{
 	Use:   "observer",
 	Short: "controll your users and observer their RAM usage",
 	Run: func(cmd *cobra.Command, args []string) {
-		app := logic.App{DebugState: logic.DEBUG_DEBUG}
-		db := db.Db{}
-
-		if !db.IsDbPresent() {
-			db.CreateSchema()
-		}
-
-		app.Main("", 1, db)
-		// fmt.Printf("%s\n", logoStyle.Render(logo))
-
+		controller := Controller{}
+		controller.Start("", 10)
 	},
 }
 

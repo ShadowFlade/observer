@@ -7,21 +7,14 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/ShadowFlade/observer/pkg/db"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/ShadowFlade/observer/pkg/render"
 	"github.com/jmoiron/sqlx"
 )
 
 type DEBUG_STATE int64
-
-var (
-	logoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#01FAC6")).Bold(true)
-	usersStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("190")).Italic(true).Width(8)
-	memStyle   = lipgloss.NewStyle().PaddingLeft(1).Bold(true).Align(lipgloss.Right)
-)
 
 const (
 	DEBUG_NONE DEBUG_STATE = iota
@@ -47,50 +40,39 @@ type UserStat struct {
 	Prog                 []ProgStat
 	TotalMemUsage        float32
 	TotalMemUsagePercent float32
-	Name                 userName
+	Name                 UserName
 }
 
-type userName string
-type UserStats map[userName]UserStat
+type UserName string
+type UserStats map[UserName]UserStat
 
-func (a *App) Main(onlyUser userName, intervalSeconds int, db db.Db) {
-	regularUsers, ids := db.GetRegularUsers()
-	onlyUser = a.formatUsernameTop(onlyUser)
-	interval := intervalSeconds * int(time.Second)
-	ticker := time.NewTicker(time.Duration(interval))
-	defer ticker.Stop()
-	done := make(chan bool)
-	go func() {
-		users, userStats, _ := a.parseTopAndGetUserResults(onlyUser)
+func (a *App) Main(
+	onlyUser UserName,
+	intervalSeconds int,
+	db db.Db,
+	regularUsers []string,
+	ids []int,
+) {
+	users, userStats, _ := a.parseTopAndGetUserResults(onlyUser)
+	renderer := render.Renderer{}
+	for i, user := range users {
+		renderer.RenderUser(string(user), userStats[user].TotalMemUsage)
 
-		for _, user := range users {
-			fmt.Printf(
-				"%s %s\n",
-				usersStyle.Render(string(user)),
-				memStyle.Render(
-					strconv.FormatFloat(float64(userStats[user].TotalMemUsage), 'f', 2, 32)),
-			)
-		}
-		for i, user := range users {
-			if !slices.Contains(users, user) {
-				isOk := a.checkWriteRegularUser(user)
-				if isOk {
-					regularUsers = append(regularUsers, string(user))
-					db.WriteStats(userStats[user].TotalMemUsage, userStats[user].TotalMemUsagePercent, ids[i], len(users))
-				}
-
-			} else {
+		if !slices.Contains(users, user) {
+			isOk := a.checkWriteRegularUser(user, db)
+			if isOk {
+				regularUsers = append(regularUsers, string(user))
 				db.WriteStats(userStats[user].TotalMemUsage, userStats[user].TotalMemUsagePercent, ids[i], len(users))
 			}
-		}
-	}()
 
-	done <- true
-	fmt.Println("Ticker done")
+		} else {
+			db.WriteStats(userStats[user].TotalMemUsage, userStats[user].TotalMemUsagePercent, ids[i], len(users))
+		}
+	}
 
 }
 
-func (a *App) parseTopAndGetUserResults(onlyUser userName) ([]userName, UserStats, float32) {
+func (a *App) parseTopAndGetUserResults(onlyUser UserName) ([]UserName, UserStats, float32) {
 
 	topColumns := TopColumns{PID: 1, User: 2, PR: 3, NI: 4, Virt: 5, Res: 6, SHR: 7, S: 8, CPU: 9, Mem: 10, Time: 11, Prog: 12}
 	isSkipHeader := true
@@ -107,14 +89,14 @@ func (a *App) parseTopAndGetUserResults(onlyUser userName) ([]userName, UserStat
 	cmd := exec.Command("bash", "-c", topStatsCommand)
 	topStats, err := cmd.Output()
 
-	userStats := make(map[userName]UserStat)
+	userStats := make(map[UserName]UserStat)
 	var totalEmployeesMemoryUsage float32
 
 	if err != nil {
 		fmt.Println("Error outputting 'top'")
 	}
 
-	users := []userName{}
+	users := []UserName{}
 
 	for _, val := range strings.Split(string(topStats), "\n") {
 		splitStr := strings.Split(val, " ")
@@ -123,7 +105,7 @@ func (a *App) parseTopAndGetUserResults(onlyUser userName) ([]userName, UserStat
 			continue
 		}
 
-		user, mem, prog := userName(strings.Trim(splitStr[0], " ")), splitStr[1], splitStr[2]
+		user, mem, prog := UserName(strings.Trim(splitStr[0], " ")), splitStr[1], splitStr[2]
 
 		//later can refocator that if we pass onluUser we can sort columhns beforehande - so before topStatsCommand so we get only one user - we sort on user, and after stopped getting these users commands we stop parsing
 
@@ -167,18 +149,16 @@ func (a *App) parseTopAndGetUserResults(onlyUser userName) ([]userName, UserStat
 	return users, userStats, totalEmployeesMemoryUsage
 }
 
-func (a *App) formatUsernameTop(username userName) userName {
-	count := utf8.RuneCountInString(string(username))
+func (a *App) FormatUsernameTop(username string) UserName {
+	count := utf8.RuneCountInString(username)
 	if count > 7 {
-		return username[:7] + "+"
+		return UserName(username[:7] + "+")
 	} else {
-		return username
+		return UserName(username)
 	}
 }
 
-func (a *App) checkWriteRegularUser(user userName) bool {
-	db := db.Db{}
-	db.Connect()
+func (a *App) checkWriteRegularUser(user UserName, db db.Db) bool {
 	command := "less /etc/passwd"
 	cmd := exec.Command("bash", "-c", command)
 

@@ -27,7 +27,36 @@ type Db struct {
 	cols     []string
 }
 
-func (d *Db) Connect() *sqlx.DB {
+type DbIsNotPresent error
+
+func (d *Db) Init() {
+	_, err := os.Executable()
+
+	if err != nil {
+		panic(err)
+	}
+
+	if err := env.Load("./.env"); err != nil {
+		fmt.Println("error")
+		panic(err)
+	}
+
+	db, err := d.Connect(false)
+
+	if err != nil {
+		db, err = d.ConnectAndCreateSchema(true)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+	} else {
+		d.db = db
+	}
+
+}
+
+func (d *Db) Connect(isRetryWithoutDB bool) (*sqlx.DB, error) {
 	_, err := os.Executable()
 
 	if err != nil {
@@ -42,12 +71,40 @@ func (d *Db) Connect() *sqlx.DB {
 	d.password = env.Get("DB_PASS", "fucked")
 	d.dbName = env.Get("DB_NAME", "urmom")
 	d.dbHost = env.Get("DB_HOST", "host")
-	connectStr := fmt.Sprintf("%s:%s@(127.0.0.1:3306)/%s", d.login, d.password, d.dbName)
+	connectStr := fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/%s", d.login, d.password, d.dbName)
 	db, err := sqlx.Connect("mysql", connectStr)
+
+	if err != nil { //here i guess we can only make an assumption that db is not created yet, mb figure out later what type of error this is
+		return db, err
+	}
+
 	d.db = db
 
-	return db
+	return db, nil
 
+}
+func (d *Db) ConnectAndCreateSchema(isRetryWithoutDB bool) (*sqlx.DB, error) {
+	d.login = env.Get("DB_LOGIN", "i")
+	d.password = env.Get("DB_PASS", "fucked")
+	d.dbName = env.Get("DB_NAME", "urmom")
+	d.dbHost = env.Get("DB_HOST", "host")
+	connectStr := fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/", d.login, d.password)
+	db, err := sqlx.Connect("mysql", connectStr)
+
+	if err != nil { //here i guess we can only make an assumption that db is not created yet, mb figure out later what type of error this is
+		log.Fatal(err)
+	}
+
+	d.db = db
+
+	d.CreateSchema()
+
+	db, err = d.Connect(false)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	return db, nil
 }
 
 func (d *Db) WriteRegularUser(user string) (int64, error) {
@@ -73,6 +130,8 @@ func (d *Db) WriteRegularUser(user string) (int64, error) {
 
 	return id, nil
 }
+
+type T interface{}
 
 func (d *Db) GetRegularUsers() ([]string, []int) {
 	usersRes, err := d.tx.Queryx("select * from users")
@@ -173,9 +232,8 @@ func (d *Db) IsDbPresent() bool {
 
 // TODO refactor: return []string of successfully created table/db messages
 func (d *Db) CreateSchema() error {
-	sqlDbCreate := "create database observser;"
+	sqlDbCreate := "create database observer;"
 	res, err := d.db.Exec(sqlDbCreate)
-	log.Println(res, ": create database observer result")
 
 	if err != nil {
 		return errors.New("Could not create database observer")
