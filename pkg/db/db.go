@@ -3,14 +3,12 @@ package db
 import (
 	"errors"
 	"fmt"
-	"log"
-	"os"
-	"strings"
-	"time"
-
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gofor-little/env"
 	"github.com/jmoiron/sqlx"
+	"log"
+	"os"
+	"time"
 )
 
 type IUser struct {
@@ -96,7 +94,6 @@ func (d *Db) GetRegularUsers() ([]string, []int) {
 	}
 
 	return users, ids
-
 }
 
 type UserStatDB struct {
@@ -108,6 +105,7 @@ type UserStatDB struct {
 }
 
 func (d *Db) WriteStats(totalMemUsage float32, totalMemUsagePercent float32, userId int, activeUsers int) bool {
+	mode := env.Get("MODE", "dev")
 	useStatDB := UserStatDB{
 		mem_usage:         float32(totalMemUsage),
 		mem_usage_percent: float32(totalMemUsagePercent),
@@ -115,7 +113,15 @@ func (d *Db) WriteStats(totalMemUsage float32, totalMemUsagePercent float32, use
 		day_active_users:  activeUsers,
 		date_inserted:     time.Now(),
 	}
-	res, err := d.tx.NamedExec(`insert into stats (mem_usage,mem_usage_percent,user_id,day_active_users,date_inserted) values (:mem_usage, :mem_usage_percent, :user_id, :day_active_users, :date_inserted`, useStatDB)
+
+	tx := d.db.MustBegin()
+
+	if mode == "dev" {
+		fmt.Println("inserting into stats", totalMemUsage, totalMemUsagePercent, userId, activeUsers)
+		return true
+	}
+
+	res, err := tx.NamedExec(`insert into stats (mem_usage,mem_usage_percent,user_id,day_active_users,date_inserted) values (:mem_usage, :mem_usage_percent, :user_id, :day_active_users, :date_inserted`, useStatDB)
 
 	if err != nil {
 		log.Fatalf("Could not insert into stats with user_id: %d", userId)
@@ -127,6 +133,10 @@ func (d *Db) WriteStats(totalMemUsage float32, totalMemUsagePercent float32, use
 	}
 
 	if id > 0 {
+		errN := tx.Commit()
+		if errN != nil {
+			log.Fatal(errN)
+		}
 		return true
 	}
 	return false
@@ -184,4 +194,3 @@ func (d *Db) CreateSchema() error {
 	}
 	return nil
 }
-

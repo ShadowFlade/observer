@@ -4,12 +4,10 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
 	"os"
-	"strconv"
 
+	"github.com/ShadowFlade/observer/pkg/db"
 	"github.com/ShadowFlade/observer/pkg/logic"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -24,29 +22,21 @@ $$ |  $$ |$$ |  $$ |$$\   $$ |$$ |      $$ |  $$ |  \$$$  /  $$ |      $$ |  $$ 
  \______/ \_______/  \______/ \________|\__|  \__|    \_/    \________|\__|  \__|
 `
 
-var (
-	logoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#01FAC6")).Bold(true)
-	usersStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("190")).Italic(true).Width(8)
-	memStyle   = lipgloss.NewStyle().PaddingLeft(1).Bold(true).Align(lipgloss.Right)
-)
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "observer",
 	Short: "controll your users and observer their RAM usage",
 	Run: func(cmd *cobra.Command, args []string) {
 		app := logic.App{DebugState: logic.DEBUG_DEBUG}
-		users, userStats := app.Main("")
+		db := db.Db{}
+
+		if !db.IsDbPresent() {
+			db.CreateSchema()
+		}
+
+		app.Main("", 1, db)
 		// fmt.Printf("%s\n", logoStyle.Render(logo))
 
-		for _, user := range users {
-			fmt.Printf(
-				"%s %s\n",
-				usersStyle.Render(user),
-				memStyle.Render(
-					strconv.FormatFloat(float64(userStats[user].TotalMemUsage), 'f', 2, 32)),
-			)
-		}
 	},
 }
 
