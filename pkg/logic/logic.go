@@ -62,11 +62,22 @@ func (a *App) Main(
 			isOk := a.checkWriteRegularUser(user, db)
 			if isOk {
 				regularUsers = append(regularUsers, string(user))
-				db.WriteStats(userStats[user].TotalMemUsage, userStats[user].TotalMemUsagePercent, ids[i], len(users))
+				db.WriteStats(
+					userStats[user].TotalMemUsage,
+					userStats[user].TotalMemUsagePercent,
+					ids[i],
+					len(users),
+				)
 			}
 
 		} else {
-			db.WriteStats(userStats[user].TotalMemUsage, userStats[user].TotalMemUsagePercent, ids[i], len(users))
+			fmt.Printf("%v : user: %s", userStats, user)
+			db.WriteStats(
+				userStats[user].TotalMemUsage,
+				userStats[user].TotalMemUsagePercent,
+				ids[i],
+				len(users),
+			)
 		}
 	}
 

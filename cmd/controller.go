@@ -17,7 +17,10 @@ type UserName interface {
 
 func (c *Controller) Start(user string, intervalSeconds int) {
 	app := logic.App{DebugState: logic.DEBUG_DEBUG}
+
 	db := db.Db{}
+	db.Init()
+
 	regularUsers, ids := db.GetRegularUsers()
 	onlyUser := app.FormatUsernameTop(user)
 	interval := intervalSeconds * int(time.Second)

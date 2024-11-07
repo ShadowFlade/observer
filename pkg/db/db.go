@@ -97,7 +97,10 @@ func (d *Db) ConnectAndCreateSchema(isRetryWithoutDB bool) (*sqlx.DB, error) {
 
 	d.db = db
 
-	d.CreateSchema()
+	err = d.CreateSchema()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	db, err = d.Connect(false)
 
@@ -134,7 +137,7 @@ func (d *Db) WriteRegularUser(user string) (int64, error) {
 type T interface{}
 
 func (d *Db) GetRegularUsers() ([]string, []int) {
-	usersRes, err := d.tx.Queryx("select * from users")
+	usersRes, err := d.db.Queryx("select * from users")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -243,12 +246,14 @@ func (d *Db) CreateSchema() error {
 	if err != nil {
 		return errors.New("Could not create table stats")
 	}
-	fmt.Println(res, ": created table observer")
+	fmt.Println(res, ": created table stats")
 
-	sqlQueryUsers := "create table observer.users (id int auto_increment not null, user varchar(255), type varchar(20), primary(`id`)"
+	sqlQueryUsers := "create table observer.users (id int auto_increment not null, user varchar(255), type varchar(20), primary key (`id`));"
 	res, err = d.db.Exec(sqlQueryUsers)
 	if err != nil {
-		return errors.New("Could now create table users")
+		return err
 	}
+	fmt.Println("Created table users")
+
 	return nil
 }
