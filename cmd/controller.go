@@ -22,14 +22,13 @@ func (c *Controller) Start(user string, intervalSeconds int) {
 	db.Init()
 
 	regularUsers, ids := db.GetRegularUsers()
-	onlyUser := app.FormatUsernameTop(user)
 	interval := intervalSeconds * int(time.Second)
 	ticker := time.NewTicker(time.Duration(interval))
 	done := make(chan bool)
 	fmt.Println("started ticker")
 	defer ticker.Stop()
 
-	go app.Main(onlyUser, intervalSeconds, db, regularUsers, ids)
+	go app.Main(user, intervalSeconds, db, regularUsers, ids)
 
 	done <- true
 	fmt.Println("Ticker done")

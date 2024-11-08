@@ -2,6 +2,7 @@ package logic
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -46,44 +47,47 @@ type UserStat struct {
 type UserName string
 type UserStats map[UserName]UserStat
 
-func (a *App) Main(
-	onlyUser UserName,
+func (this *App) Main(
+	onlyUser string,
 	intervalSeconds int,
 	db db.Db,
 	regularUsers []string,
 	ids []int,
 ) {
-	users, userStats, _ := a.parseTopAndGetUserResults(onlyUser)
+	formattedUser := this.FormatUsernameTop(onlyUser)
+	lessUsers := this.GetUsers()
+	userStats, _ := this.parseTopAndGetUserResults(formattedUser)
 	renderer := render.Renderer{}
-	for i, user := range users {
-		renderer.RenderUser(string(user), userStats[user].TotalMemUsage)
 
-		if !slices.Contains(users, user) {
-			isOk := a.checkWriteRegularUser(user, db)
+	for i, user := range lessUsers {
+		fUser := this.FormatUsernameTop(user.User)
+		renderer.RenderUser(string(user.User), userStats[fUser].TotalMemUsage)
+
+		if !slices.Contains(regularUsers, string(user.User)) {
+			isOk := this.checkWriteRegularUser(string(user.User), db)
 			if isOk {
-				regularUsers = append(regularUsers, string(user))
+				regularUsers = append(regularUsers, string(user.User))
 				db.WriteStats(
-					userStats[user].TotalMemUsage,
-					userStats[user].TotalMemUsagePercent,
+					userStats[UserName(user.User)].TotalMemUsage,
+					userStats[UserName(user.User)].TotalMemUsagePercent,
 					ids[i],
-					len(users),
+					len(lessUsers),
 				)
 			}
 
 		} else {
-			fmt.Printf("%v : user: %s", userStats, user)
 			db.WriteStats(
-				userStats[user].TotalMemUsage,
-				userStats[user].TotalMemUsagePercent,
+				userStats[UserName(user.User)].TotalMemUsage,
+				userStats[UserName(user.User)].TotalMemUsagePercent,
 				ids[i],
-				len(users),
+				len(lessUsers),
 			)
 		}
 	}
 
 }
 
-func (a *App) parseTopAndGetUserResults(onlyUser UserName) ([]UserName, UserStats, float32) {
+func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float32) {
 
 	topColumns := TopColumns{PID: 1, User: 2, PR: 3, NI: 4, Virt: 5, Res: 6, SHR: 7, S: 8, CPU: 9, Mem: 10, Time: 11, Prog: 12}
 	isSkipHeader := true
@@ -156,11 +160,11 @@ func (a *App) parseTopAndGetUserResults(onlyUser UserName) ([]UserName, UserStat
 	for _, userStat := range userStats {
 		userStat.TotalMemUsagePercent = userStat.TotalMemUsage / totalEmployeesMemoryUsage
 	}
-	fmt.Println(len(users), " length of users")
-	return users, userStats, totalEmployeesMemoryUsage
+
+	return userStats, totalEmployeesMemoryUsage
 }
 
-func (a *App) FormatUsernameTop(username string) UserName {
+func (this *App) FormatUsernameTop(username string) UserName {
 	count := utf8.RuneCountInString(username)
 	if count > 7 {
 		return UserName(username[:7] + "+")
@@ -169,21 +173,66 @@ func (a *App) FormatUsernameTop(username string) UserName {
 	}
 }
 
-func (a *App) checkWriteRegularUser(user UserName, db db.Db) bool {
+func (this *App) checkWriteRegularUser(user string, db db.Db) bool {
 	command := "less /etc/passwd"
 	cmd := exec.Command("bash", "-c", command)
 
 	users, err := cmd.Output()
+	fmt.Println(string(users), " users output", user, ": user")
 
 	if err != nil {
 		panic("Cannot write regular users")
 	}
 
-	r, _ := regexp.Compile(fmt.Sprintf(`%s\:x\:(\d+).*`, user))
+	if user == "" {
+		user = ".*"
+	}
+	r, _ := regexp.Compile(fmt.Sprintf(`(%s)\:x\:(\d+).*`, user))
 	res := r.Find(users) //we dont count users with groupid less than 1000 bc its system users
+	fmt.Println(res)
 	if int(res[2]) > 1000 {
 		db.WriteRegularUser(string(res[1]))
 		return true
 	}
 	return false
+}
+
+type UserAndId struct {
+	User string
+	Id   int
+}
+
+func (this *App) GetUsers() []UserAndId {
+
+	command := "less /etc/passwd"
+	cmd := exec.Command("bash", "-c", command)
+
+	usersTop, err := cmd.Output()
+
+	if err != nil {
+		panic("Cannot write regular users")
+	}
+
+	r, _ := regexp.Compile(`(.*)\:x\:(\d+).*`)
+	res := r.FindAll(usersTop, -1) //we dont count users with groupid less than 1000 bc its system users
+	var users []UserAndId
+
+	for _, tuple := range res {
+		id, err := strconv.Atoi(string(tuple[1]))
+
+		if err != nil {
+			log.Fatal(err, string(tuple))
+		}
+
+		users = append(
+			users,
+			UserAndId{
+				User: string(tuple[0]),
+				Id:   id,
+			},
+		)
+	}
+	fmt.Println(res, " ITS A RES")
+
+	return []UserAndId{}
 }

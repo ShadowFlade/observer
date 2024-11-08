@@ -248,7 +248,8 @@ func (d *Db) CreateSchema() error {
 	}
 	fmt.Println(res, ": created table stats")
 
-	sqlQueryUsers := "create table observer.users (id int auto_increment not null, user varchar(255), type varchar(20), primary key (`id`));"
+	//ln shows that this values is from unix system
+	sqlQueryUsers := "create table observer.users (id int auto_increment not null, user varchar(255), type varchar(20), ln_user_id int, primary key (`id`));"
 	res, err = d.db.Exec(sqlQueryUsers)
 	if err != nil {
 		return err
