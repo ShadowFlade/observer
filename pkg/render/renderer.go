@@ -24,3 +24,4 @@ func (r *Renderer) RenderUser(user string, totalMemUsage float32) {
 			strconv.FormatFloat(float64(totalMemUsage), 'f', 2, 32)),
 	)
 }
+

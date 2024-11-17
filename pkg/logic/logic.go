@@ -29,7 +29,7 @@ type App struct {
 	DB         sqlx.DB
 }
 type TopColumns struct {
-	PID, User, PR, NI, Virt, Res, SHR, S, CPU, Mem, Time, Prog int
+	PID, UserName, PR, NI, Virt, Res, SHR, S, CPU, Mem, Time, Prog int
 }
 
 type ProgStat struct {
@@ -60,16 +60,18 @@ func (this *App) Main(
 	renderer := render.Renderer{}
 
 	for i, user := range lessUsers {
-		fUser := this.FormatUsernameTop(user.User)
-		renderer.RenderUser(string(user.User), userStats[fUser].TotalMemUsage)
+		fUser := this.FormatUsernameTop(user.UserName)
+		if user.Id > 1000 {
+			renderer.RenderUser(string(user.UserName), userStats[fUser].TotalMemUsage)
+		}
 
-		if !slices.Contains(regularUsers, string(user.User)) {
-			isOk := this.checkWriteRegularUser(UserName(user.User), db)
+		if !slices.Contains(regularUsers, string(user.UserName)) {
+			isOk := this.checkWriteRegularUser(UserName(user.UserName), db)
 			if isOk {
-				regularUsers = append(regularUsers, string(user.User))
+				regularUsers = append(regularUsers, string(user.UserName))
 				db.WriteStats(
-					userStats[UserName(user.User)].TotalMemUsage,
-					userStats[UserName(user.User)].TotalMemUsagePercent,
+					userStats[UserName(user.UserName)].TotalMemUsage,
+					userStats[UserName(user.UserName)].TotalMemUsagePercent,
 					ids[i],
 					len(lessUsers),
 				)
@@ -77,8 +79,8 @@ func (this *App) Main(
 
 		} else {
 			db.WriteStats(
-				userStats[UserName(user.User)].TotalMemUsage,
-				userStats[UserName(user.User)].TotalMemUsagePercent,
+				userStats[UserName(user.UserName)].TotalMemUsage,
+				userStats[UserName(user.UserName)].TotalMemUsagePercent,
 				ids[i],
 				len(lessUsers),
 			)
@@ -89,7 +91,7 @@ func (this *App) Main(
 
 func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float32) {
 
-	topColumns := TopColumns{PID: 1, User: 2, PR: 3, NI: 4, Virt: 5, Res: 6, SHR: 7, S: 8, CPU: 9, Mem: 10, Time: 11, Prog: 12}
+	topColumns := TopColumns{PID: 1, UserName: 2, PR: 3, NI: 4, Virt: 5, Res: 6, SHR: 7, S: 8, CPU: 9, Mem: 10, Time: 11, Prog: 12}
 	isSkipHeader := true
 	var header string
 
@@ -99,7 +101,7 @@ func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float3
 		header = ""
 	}
 
-	topStatsCommand := fmt.Sprintf("top -b -n 1 | awk '%s {print $%d, $%d, $%d}'", header, topColumns.User, topColumns.Res, topColumns.Prog)
+	topStatsCommand := fmt.Sprintf("top -b -n 1 | awk '%s {print $%d, $%d, $%d}'", header, topColumns.UserName, topColumns.Res, topColumns.Prog)
 
 	cmd := exec.Command("bash", "-c", topStatsCommand)
 	topStats, err := cmd.Output()
@@ -108,7 +110,7 @@ func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float3
 	var totalEmployeesMemoryUsage float32
 
 	if err != nil {
-		fmt.Println("Error outputting 'top'")
+		panic("Error outputting 'top'")
 	}
 
 	users := []UserName{}
@@ -135,7 +137,7 @@ func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float3
 			users = append(users, user)
 
 			if err != nil {
-				fmt.Println("Can't convert user memory usage into int", " ", mem)
+				log.Printf("Can't convert user memory usage into int %v", mem)
 			}
 
 			userStat.TotalMemUsage += float32(memInt)
@@ -178,7 +180,6 @@ func (this *App) checkWriteRegularUser(userName UserName, db db.Db) bool {
 	cmd := exec.Command("bash", "-c", command)
 
 	users, err := cmd.Output()
-	fmt.Println(string(users), " users output", userName, ": user")
 
 	if err != nil {
 		panic("Cannot write regular users")
@@ -188,23 +189,27 @@ func (this *App) checkWriteRegularUser(userName UserName, db db.Db) bool {
 		userName = ".*"
 	}
 
-	fmt.Println(userName," user ??")
+	fmt.Println(userName, " username")
 	regex := fmt.Sprintf(`(%s)\:x\:(\d+).*`, userName)
-	fmt.Println(regex," regex compiled")
 	r, _ := regexp.Compile(regex)
-	res := r.Find(users)
-	fmt.Println(res, " rs", userName)
+	res := r.FindSubmatch(users)
 
-	if int(res[2]) > 1000 {
-		db.WriteRegularUser(string(res[1]))
+	foundId, err := strconv.Atoi(string(res[2]))
+
+	if err != nil {
+		panic("Could not find user id")
+	}
+
+	if this.IsRegularUser(string(userName), foundId) {
+		db.WriteRegularUser(string(res[1]), int32(foundId))
 		return true
 	}
 	return false
 }
 
 type UserAndId struct {
-	User string
-	Id   int
+	UserName string
+	Id       int
 }
 
 func (this *App) GetUsers() []UserAndId {
@@ -222,10 +227,10 @@ func (this *App) GetUsers() []UserAndId {
 	res := r.FindAllSubmatch(usersTop, -1) //we dont count users with groupid less than 1000 bc its system users
 	var users []UserAndId
 
-	for index, tuple := range res {
-		if index == 0 {
-			fmt.Println(string(tuple[0]),string(tuple[1]),string(tuple[2])," tuple")
-		}
+	for _, tuple := range res {
+		// if index == 0 {
+		// 	fmt.Println(string(tuple[0]), string(tuple[1]), string(tuple[2]), " tuple")
+		// }
 		id, err := strconv.Atoi(string(tuple[2]))
 
 		if err != nil {
@@ -235,11 +240,15 @@ func (this *App) GetUsers() []UserAndId {
 		users = append(
 			users,
 			UserAndId{
-				User: string(tuple[1]),
-				Id:   id,
+				UserName: string(tuple[1]),
+				Id:       id,
 			},
 		)
 	}
 
 	return users
+}
+
+func (this *App) IsRegularUser(userName string, id int) bool {
+	return id > 1000 && userName != "nobody"
 }

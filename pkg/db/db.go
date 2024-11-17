@@ -12,9 +12,10 @@ import (
 )
 
 type IUser struct {
-	ID   int    `db:"id"`
-	USER string `db:"user"`
-	TYPE string `db:"type"`
+	ID         int    `db:"id"`
+	USER       string `db:"user"`
+	TYPE       string `db:"type"`
+	LN_USER_ID int    `db:"ln_user_id"`
 }
 
 type Db struct {
@@ -110,16 +111,11 @@ func (d *Db) ConnectAndCreateSchema(isRetryWithoutDB bool) (*sqlx.DB, error) {
 	return db, nil
 }
 
-func (d *Db) WriteRegularUser(user string) (int64, error) {
+func (d *Db) WriteRegularUser(user string, id int32) (int64, error) {
 	tx := d.db.MustBegin()
+	res := tx.MustExec("INSERT INTO users (user, type, ln_user_id) VALUES (?, 'regular', ?)", user, id)
 
-	res, err := tx.NamedExec(`INSERT INTO users (user, type) VALUES (:user, regular)`, user)
-
-	if err != nil {
-		return 0.00, err
-	}
-
-	id, err := res.LastInsertId()
+	insertedId, err := res.LastInsertId()
 
 	if err != nil {
 		return 0.00, err
@@ -131,7 +127,7 @@ func (d *Db) WriteRegularUser(user string) (int64, error) {
 		return 0.00, errN
 	}
 
-	return id, nil
+	return insertedId, nil
 }
 
 type T interface{}
@@ -145,6 +141,7 @@ func (d *Db) GetRegularUsers() ([]string, []int) {
 
 	var users []string
 	var ids []int
+
 	for usersRes.Next() {
 		var user IUser
 		err := usersRes.Scan(&user)
@@ -241,20 +238,25 @@ func (d *Db) CreateSchema() error {
 	if err != nil {
 		return errors.New("Could not create database observer")
 	}
+
 	sqlQueryCreate := "create table observer.stats (id int auto_increment not null, mem_usage float not null, mem_usage_percent float not null ,date_inserted datetime not null, primary key (`id`), user_id int not null, day_active_users int not null);"
 	res, err = d.db.Exec(sqlQueryCreate)
+
 	if err != nil {
 		return errors.New("Could not create table stats")
 	}
-	fmt.Println(res, ": created table stats")
+
+	log.Println(res, ": created table stats")
 
 	//ln shows that this values is from unix system
 	sqlQueryUsers := "create table observer.users (id int auto_increment not null, user varchar(255), type varchar(20), ln_user_id int, primary key (`id`));"
 	res, err = d.db.Exec(sqlQueryUsers)
+
 	if err != nil {
 		return err
 	}
-	fmt.Println("Created table users")
+
+	log.Println("Created table users")
 
 	return nil
 }
