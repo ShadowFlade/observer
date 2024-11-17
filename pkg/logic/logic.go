@@ -64,7 +64,7 @@ func (this *App) Main(
 		renderer.RenderUser(string(user.User), userStats[fUser].TotalMemUsage)
 
 		if !slices.Contains(regularUsers, string(user.User)) {
-			isOk := this.checkWriteRegularUser(string(user.User), db)
+			isOk := this.checkWriteRegularUser(UserName(user.User), db)
 			if isOk {
 				regularUsers = append(regularUsers, string(user.User))
 				db.WriteStats(
@@ -173,23 +173,28 @@ func (this *App) FormatUsernameTop(username string) UserName {
 	}
 }
 
-func (this *App) checkWriteRegularUser(user string, db db.Db) bool {
+func (this *App) checkWriteRegularUser(userName UserName, db db.Db) bool {
 	command := "less /etc/passwd"
 	cmd := exec.Command("bash", "-c", command)
 
 	users, err := cmd.Output()
-	fmt.Println(string(users), " users output", user, ": user")
+	fmt.Println(string(users), " users output", userName, ": user")
 
 	if err != nil {
 		panic("Cannot write regular users")
 	}
 
-	if user == "" {
-		user = ".*"
+	if userName == "" {
+		userName = ".*"
 	}
-	r, _ := regexp.Compile(fmt.Sprintf(`(%s)\:x\:(\d+).*`, user))
-	res := r.Find(users) //we dont count users with groupid less than 1000 bc its system users
-	fmt.Println(res)
+
+	fmt.Println(userName," user ??")
+	regex := fmt.Sprintf(`(%s)\:x\:(\d+).*`, userName)
+	fmt.Println(regex," regex compiled")
+	r, _ := regexp.Compile(regex)
+	res := r.Find(users)
+	fmt.Println(res, " rs", userName)
+
 	if int(res[2]) > 1000 {
 		db.WriteRegularUser(string(res[1]))
 		return true
@@ -214,25 +219,27 @@ func (this *App) GetUsers() []UserAndId {
 	}
 
 	r, _ := regexp.Compile(`(.*)\:x\:(\d+).*`)
-	res := r.FindAll(usersTop, -1) //we dont count users with groupid less than 1000 bc its system users
+	res := r.FindAllSubmatch(usersTop, -1) //we dont count users with groupid less than 1000 bc its system users
 	var users []UserAndId
 
-	for _, tuple := range res {
-		id, err := strconv.Atoi(string(tuple[1]))
+	for index, tuple := range res {
+		if index == 0 {
+			fmt.Println(string(tuple[0]),string(tuple[1]),string(tuple[2])," tuple")
+		}
+		id, err := strconv.Atoi(string(tuple[2]))
 
 		if err != nil {
-			log.Fatal(err, string(tuple))
+			log.Fatal(err, string(tuple[2]))
 		}
 
 		users = append(
 			users,
 			UserAndId{
-				User: string(tuple[0]),
+				User: string(tuple[1]),
 				Id:   id,
 			},
 		)
 	}
-	fmt.Println(res, " ITS A RES")
 
-	return []UserAndId{}
+	return users
 }
