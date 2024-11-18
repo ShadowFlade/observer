@@ -158,34 +158,40 @@ func (d *Db) GetRegularUsers() ([]string, []int) {
 }
 
 type UserStatDB struct {
-	mem_usage         float32   `db:"mem_usage"`
-	mem_usage_percent float32   `db:"mem_usage_percent"`
-	date_inserted     time.Time `db:"date_inserted"`
-	user_id           int       `db:"user_id"`
-	day_active_users  int       `db:"day_active_users"`
+	MemUsage        float32   `db:"mem_usage"`
+	MemUsagePercent float32   `db:"mem_usage_percent"`
+	DateInserted    time.Time `db:"date_inserted"`
+	UserId          int       `db:"user_id"`
+	DayActiveUsers  int       `db:"day_active_users"`
 }
 
-func (d *Db) WriteStats(totalMemUsage float32, totalMemUsagePercent float32, userId int, activeUsers int) bool {
-	mode := env.Get("MODE", "dev")
+func (d *Db) WriteStats(
+	totalMemUsage float32,
+	totalMemUsagePercent float32,
+	userId int,
+	activeUsers int,
+) bool {
+	// mode := env.Get("MODE", "dev")
 	useStatDB := UserStatDB{
-		mem_usage:         float32(totalMemUsage),
-		mem_usage_percent: float32(totalMemUsagePercent),
-		user_id:           userId,
-		day_active_users:  activeUsers,
-		date_inserted:     time.Now(),
+		MemUsage:        float32(totalMemUsage),
+		MemUsagePercent: float32(totalMemUsagePercent),
+		UserId:          userId,
+		DayActiveUsers:  activeUsers,
+		DateInserted:    time.Now(),
 	}
+	fmt.Printf("%+v\n", useStatDB)
 
 	tx := d.db.MustBegin()
 
-	if mode == "dev" {
-		fmt.Println("inserting into stats", totalMemUsage, totalMemUsagePercent, userId, activeUsers)
-		return true
-	}
+	// if mode == "dev" {
+	// 	fmt.Println("inserting into stats", totalMemUsage, totalMemUsagePercent, userId, activeUsers)
+	// 	return true
+	// }
 
-	res, err := tx.NamedExec(`insert into stats (mem_usage,mem_usage_percent,user_id,day_active_users,date_inserted) values (:mem_usage, :mem_usage_percent, :user_id, :day_active_users, :date_inserted`, useStatDB)
+	res, err := tx.NamedExec(`insert into stats (mem_usage,mem_usage_percent,user_id,day_active_users,date_inserted) values (:mem_usage, :mem_usage_percent, :user_id, :day_active_users, :date_inserted)`, useStatDB)
 
 	if err != nil {
-		log.Fatalf("Could not insert into stats with user_id: %d", userId)
+		log.Fatalf(err.Error())
 	}
 	id, err := res.LastInsertId()
 

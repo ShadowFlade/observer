@@ -59,7 +59,7 @@ func (this *App) Main(
 	userStats, _ := this.parseTopAndGetUserResults(formattedUser)
 	renderer := render.Renderer{}
 
-	for i, user := range lessUsers {
+	for _, user := range lessUsers {
 		fUser := this.FormatUsernameTop(user.UserName)
 
 		if !this.IsRegularUser(user.UserName, user.Id) {
@@ -67,15 +67,16 @@ func (this *App) Main(
 		}
 
 		renderer.RenderUser(string(user.UserName), userStats[fUser].TotalMemUsage)
+		fmt.Printf("%v\n", userStats["shadowf+"])
 
 		if !slices.Contains(regularUsers, string(user.UserName)) {
 			isOk := this.checkWriteRegularUser(UserName(user.UserName), db)
 			if isOk {
-				regularUsers = append(regularUsers, string(user.UserName))
+				regularUsers = append(regularUsers, user.UserName)
 				db.WriteStats(
 					userStats[UserName(user.UserName)].TotalMemUsage,
 					userStats[UserName(user.UserName)].TotalMemUsagePercent,
-					ids[i],
+					user.Id,
 					len(lessUsers),
 				)
 			}
@@ -84,7 +85,7 @@ func (this *App) Main(
 			db.WriteStats(
 				userStats[UserName(user.UserName)].TotalMemUsage,
 				userStats[UserName(user.UserName)].TotalMemUsagePercent,
-				ids[i],
+				user.Id,
 				len(lessUsers),
 			)
 		}
