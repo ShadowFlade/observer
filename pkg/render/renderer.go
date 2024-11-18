@@ -9,7 +9,7 @@ import (
 
 var (
 	logoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#01FAC6")).Bold(true)
-	usersStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("190")).Italic(true).Width(8)
+	usersStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("190")).Italic(true).Width(15)
 	memStyle   = lipgloss.NewStyle().PaddingLeft(1).Bold(true).Align(lipgloss.Right)
 )
 

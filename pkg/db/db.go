@@ -144,10 +144,12 @@ func (d *Db) GetRegularUsers() ([]string, []int) {
 
 	for usersRes.Next() {
 		var user IUser
-		err := usersRes.Scan(&user)
+		err := usersRes.StructScan(&user)
+
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		users = append(users, user.USER)
 		ids = append(ids, user.ID)
 	}

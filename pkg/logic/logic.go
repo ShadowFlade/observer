@@ -61,9 +61,12 @@ func (this *App) Main(
 
 	for i, user := range lessUsers {
 		fUser := this.FormatUsernameTop(user.UserName)
-		if user.Id > 1000 {
-			renderer.RenderUser(string(user.UserName), userStats[fUser].TotalMemUsage)
+
+		if !this.IsRegularUser(user.UserName, user.Id) {
+			continue
 		}
+
+		renderer.RenderUser(string(user.UserName), userStats[fUser].TotalMemUsage)
 
 		if !slices.Contains(regularUsers, string(user.UserName)) {
 			isOk := this.checkWriteRegularUser(UserName(user.UserName), db)
@@ -250,5 +253,5 @@ func (this *App) GetUsers() []UserAndId {
 }
 
 func (this *App) IsRegularUser(userName string, id int) bool {
-	return id > 1000 && userName != "nobody"
+	return id >= 1000 && userName != "nobody"
 }
