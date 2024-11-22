@@ -167,7 +167,7 @@ type UserStatDB struct {
 
 func (d *Db) WriteStats(
 	totalMemUsage float32,
-	totalMemUsagePercent float32,
+	totalMemUsagePercent float64,
 	userId int,
 	activeUsers int,
 ) bool {
@@ -190,6 +190,7 @@ func (d *Db) WriteStats(
 
 	res, err := tx.NamedExec(`insert into stats (mem_usage,mem_usage_percent,user_id,day_active_users,date_inserted) values (:mem_usage, :mem_usage_percent, :user_id, :day_active_users, :date_inserted)`, useStatDB)
 
+	fmt.Println(totalMemUsagePercent," total mem usage percent")
 	if err != nil {
 		log.Fatalf(err.Error())
 	}

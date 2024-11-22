@@ -38,10 +38,9 @@ type ProgStat struct {
 }
 
 type UserStat struct {
-	Prog                 []ProgStat
-	TotalMemUsage        float32
-	TotalMemUsagePercent float32
-	Name                 UserName
+	Prog          []ProgStat
+	TotalMemUsage float32
+	Name          UserName
 }
 
 type UserName string
@@ -55,19 +54,23 @@ func (this *App) Main(
 	ids []int,
 ) {
 	formattedUser := this.FormatUsernameTop(onlyUser)
-	lessUsers := this.GetUsers()
-	userStats, _ := this.parseTopAndGetUserResults(formattedUser)
+	lessRegularUsers := this.LnGetRegularUsers()
+	fmt.Println(len(lessRegularUsers), " less users len")
+	userStats := this.parseTopAndGetUserResults(formattedUser)
 	renderer := render.Renderer{}
 
-	for _, user := range lessUsers {
+	regularUsersCount, regularUsersTotalMemUsage := this.GetTotalUsersInfo(lessRegularUsers, userStats)
+
+	fmt.Println(regularUsersCount, regularUsersTotalMemUsage, " count")
+	for _, user := range lessRegularUsers {
 		fUser := this.FormatUsernameTop(user.UserName)
+		totalMemUsagePercent := float64(userStats[fUser].TotalMemUsage) / regularUsersTotalMemUsage
 
 		if !this.IsRegularUser(user.UserName, user.Id) {
 			continue
 		}
 
 		renderer.RenderUser(string(user.UserName), userStats[fUser].TotalMemUsage)
-		fmt.Printf("%v\n", userStats["shadowf+"])
 
 		if !slices.Contains(regularUsers, string(user.UserName)) {
 			isOk := this.checkWriteRegularUser(UserName(user.UserName), db)
@@ -76,26 +79,25 @@ func (this *App) Main(
 				regularUsers = append(regularUsers, user.UserName)
 				db.WriteStats(
 					userStats[fUser].TotalMemUsage,
-					userStats[fUser].TotalMemUsagePercent,
+					totalMemUsagePercent,
 					user.Id,
-					len(lessUsers),
+					regularUsersCount,
 				)
 			}
 
 		} else {
-			// fmt.Pritnf("+
 			db.WriteStats(
 				userStats[fUser].TotalMemUsage,
-				userStats[fUser].TotalMemUsagePercent,
+				totalMemUsagePercent,
 				user.Id,
-				len(lessUsers),
+				regularUsersCount,
 			)
 		}
 	}
 
 }
 
-func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float32) {
+func (this *App) parseTopAndGetUserResults(onlyUser UserName) UserStats {
 
 	topColumns := TopColumns{PID: 1, UserName: 2, PR: 3, NI: 4, Virt: 5, Res: 6, SHR: 7, S: 8, CPU: 9, Mem: 10, Time: 11, Prog: 12}
 	isSkipHeader := true
@@ -113,7 +115,6 @@ func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float3
 	topStats, err := cmd.Output()
 
 	userStats := make(map[UserName]UserStat)
-	var totalEmployeesMemoryUsage float32
 
 	if err != nil {
 		panic("Error outputting 'top'")
@@ -137,7 +138,6 @@ func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float3
 		}
 
 		memInt, err := strconv.Atoi(mem)
-		totalEmployeesMemoryUsage += float32(memInt)
 
 		if userStat, ok := userStats[user]; ok && !slices.Contains(users, user) {
 			users = append(users, user)
@@ -165,11 +165,8 @@ func (this *App) parseTopAndGetUserResults(onlyUser UserName) (UserStats, float3
 			}
 		}
 	}
-	for _, userStat := range userStats {
-		userStat.TotalMemUsagePercent = userStat.TotalMemUsage / totalEmployeesMemoryUsage
-	}
 
-	return userStats, totalEmployeesMemoryUsage
+	return userStats
 }
 
 func (this *App) FormatUsernameTop(username string) UserName {
@@ -218,7 +215,7 @@ type UserAndId struct {
 	Id       int
 }
 
-func (this *App) GetUsers() []UserAndId {
+func (this *App) LnGetRegularUsers() []UserAndId {
 
 	command := "less /etc/passwd"
 	cmd := exec.Command("bash", "-c", command)
@@ -234,10 +231,11 @@ func (this *App) GetUsers() []UserAndId {
 	var users []UserAndId
 
 	for _, tuple := range res {
-		// if index == 0 {
-		// 	fmt.Println(string(tuple[0]), string(tuple[1]), string(tuple[2]), " tuple")
-		// }
 		id, err := strconv.Atoi(string(tuple[2]))
+
+		if id < 1000 {
+			continue
+		}
 
 		if err != nil {
 			log.Fatal(err, string(tuple[2]))
@@ -256,5 +254,23 @@ func (this *App) GetUsers() []UserAndId {
 }
 
 func (this *App) IsRegularUser(userName string, id int) bool {
-	return id >= 1000 && userName != "nobody"
+	return id >= 1000 && userName != "nobody" && userName != ""
+}
+
+func (this *App) GetTotalUsersInfo(lessRegularUsers []UserAndId, userStats UserStats) (int, float64) {
+	var totalUsersMemoryUsage float64
+	var count int
+
+	for _, val := range lessRegularUsers {
+		fmt.Println(val.UserName," user name")
+		username := UserName(val.UserName)
+		if _, ok := userStats[username]; ok {
+			count += 1
+			totalUsersMemoryUsage += float64(userStats[UserName(val.UserName)].TotalMemUsage)
+		}
+	}
+
+	fmt.Println(totalUsersMemoryUsage, count, " total MEMORY USAGE")
+
+	return count, totalUsersMemoryUsage
 }
