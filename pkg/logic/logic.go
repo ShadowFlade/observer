@@ -71,20 +71,22 @@ func (this *App) Main(
 
 		if !slices.Contains(regularUsers, string(user.UserName)) {
 			isOk := this.checkWriteRegularUser(UserName(user.UserName), db)
+
 			if isOk {
 				regularUsers = append(regularUsers, user.UserName)
 				db.WriteStats(
-					userStats[UserName(user.UserName)].TotalMemUsage,
-					userStats[UserName(user.UserName)].TotalMemUsagePercent,
+					userStats[fUser].TotalMemUsage,
+					userStats[fUser].TotalMemUsagePercent,
 					user.Id,
 					len(lessUsers),
 				)
 			}
 
 		} else {
+			// fmt.Pritnf("+
 			db.WriteStats(
-				userStats[UserName(user.UserName)].TotalMemUsage,
-				userStats[UserName(user.UserName)].TotalMemUsagePercent,
+				userStats[fUser].TotalMemUsage,
+				userStats[fUser].TotalMemUsagePercent,
 				user.Id,
 				len(lessUsers),
 			)
