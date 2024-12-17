@@ -192,7 +192,7 @@ func (d *Db) WriteStats(
 
 	fmt.Println(totalMemUsagePercent," total mem usage percent")
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf(err.Error(), useStatDB)
 	}
 	id, err := res.LastInsertId()
 

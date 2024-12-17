@@ -262,11 +262,14 @@ func (this *App) GetTotalUsersInfo(lessRegularUsers []UserAndId, userStats UserS
 	var count int
 
 	for _, val := range lessRegularUsers {
-		fmt.Println(val.UserName," user name")
-		username := UserName(val.UserName)
+		userName := this.FormatUsernameTop(val.UserName)
+
+		fmt.Println(userName, " user name", userStats)
+		username := userName
+
 		if _, ok := userStats[username]; ok {
 			count += 1
-			totalUsersMemoryUsage += float64(userStats[UserName(val.UserName)].TotalMemUsage)
+			totalUsersMemoryUsage += float64(userStats[userName].TotalMemUsage)
 		}
 	}
 
